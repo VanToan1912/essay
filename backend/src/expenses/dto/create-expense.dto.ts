@@ -1,40 +1,31 @@
-import {
-    IsString,
-    IsNotEmpty,
-    IsNumber,
-    IsOptional,
-    IsBoolean,
-    IsArray,
-    IsDateString,
-  } from 'class-validator';
-  
-  export class CreateExpenseDto {
-    @IsString()
-    @IsNotEmpty()
-    name: string;
-  
-    @IsNumber()
-    amount: number;
-  
-    @IsString()
-    @IsNotEmpty()
-    category: string;
-  
-    @IsOptional()
-    @IsArray()
-    @IsString({ each: true })
-    tags?: string[];
-  
-    @IsOptional()
-    @IsString()
-    note?: string;
-  
-    @IsOptional()
-    @IsBoolean()
-    recurring?: boolean;
-  
-    @IsOptional()
-    @IsDateString()
-    date?: string;
-  }
-  
+// src/expense/dto/create-expense.dto.ts
+import { IsString, IsNumber, IsOptional, IsBoolean, IsDate, IsArray, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class CreateExpenseDto {
+  @IsString()
+  name: string;
+
+  @IsNumber()
+  @Min(0)
+  amount: number;
+
+  @IsString()
+  category: string;
+
+  @IsDate()
+  @Type(() => Date)
+  date: Date;
+
+  @IsArray()
+  @IsString({ each: true })
+  tags: string[] = [];
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  recurring?: boolean = false;
+}

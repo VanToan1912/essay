@@ -1,32 +1,45 @@
-import { Controller, Post, Body, Get, Param, Patch } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, BadRequestException } from '@nestjs/common';
 import { AuthService } from './auth.service';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('register')
-  async register(@Body() userData: { email: string; password: string; name: string }) {
-    return this.authService.register(userData);
+  async register(@Body() registerDto: RegisterDto) {
+    return this.authService.register(registerDto);
   }
 
   @Post('login')
-  async login(@Body() credentials: { email: string; password: string }) {
-    return this.authService.login(credentials);
+  async login(@Body() loginDto: LoginDto) {
+    return this.authService.login(loginDto);
   }
 
   @Post('forgot-password')
-  async forgotPassword(@Body() { email }: { email: string }) {
-    return this.authService.forgotPassword(email);
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(forgotPasswordDto.email);
   }
 
   @Post('reset-password')
-  async resetPassword(@Body() { token, newPassword }: { token: string; newPassword: string }) {
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    const { token, newPassword } = resetPasswordDto;
     return this.authService.resetPassword(token, newPassword);
   }
 
-  @Get('verify-email/:token')
-  async verifyEmail(@Param('token') token: string) {
-    return this.authService.verifyEmail(token);
+  @Post('verify-email')
+  async verifyEmail(@Body() body: { email: string; code: string }) {
+    const { email, code } = body;
+  
+    if (!email || !code) {
+      throw new BadRequestException('Missing email or verification code');
+    }
+  
+    return this.authService.verifyEmail(email, code);
   }
+  
+  
 }

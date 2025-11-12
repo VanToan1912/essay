@@ -3,7 +3,7 @@ import { Document, Types } from 'mongoose';
 
 @Schema({ timestamps: true })
 export class Budget extends Document {
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true, index: true })
   user: Types.ObjectId;
 
   @Prop({ required: true })
@@ -15,8 +15,8 @@ export class Budget extends Document {
   @Prop({ required: true })
   category: string;
 
-  @Prop()
-  period?: string; // e.g. 'monthly', 'weekly', 'yearly'
+  @Prop({ enum: ['daily', 'weekly', 'monthly', 'yearly'] })
+  period?: string;
 
   @Prop({ default: 0 })
   spent: number;
@@ -29,3 +29,13 @@ export class Budget extends Document {
 }
 
 export const BudgetSchema = SchemaFactory.createForClass(Budget);
+
+// Prevent duplicate budgets for the same user/category/period
+BudgetSchema.index(
+  { user: 1, category: 1, period: 1 },
+  { unique: true, partialFilterExpression: { period: { $exists: true } } },
+);
+
+BudgetSchema.virtual('progress').get(function () {
+  return this.amount ? (this.spent / this.amount) * 100 : 0;
+});

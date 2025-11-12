@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import * as nodemailer from 'nodemailer';
 import { User } from '../users/schemas/user.schema';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -11,7 +12,7 @@ export class AuthService {
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
     private jwtService: JwtService,
-  ) {}
+  ) { }
 
   async register(userData: { email: string; password: string; name: string }): Promise<User> {
     const { email, password, name } = userData;
@@ -22,7 +23,9 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
-    const verificationToken = uuidv4();
+
+    // Generate random 6-digit verification code
+    const verificationToken = Math.floor(100000 + Math.random() * 900000).toString();
 
     const user = new this.userModel({
       email,
@@ -32,31 +35,85 @@ export class AuthService {
       isVerified: false,
     });
 
-    return user.save();
+    const savedUser = await user.save();
+
+    // Send verification email
+    await this.sendVerificationEmail(email, verificationToken);
+
+    return savedUser;
   }
 
-  async login(credentials: { email: string; password: string }): Promise<{ token: string; user: any }> {
-    const { email, password } = credentials;
+  private async sendVerificationEmail(email: string, code: string) {
+    const transporter = nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
 
+    const mailOptions = {
+      from: '"Easy Budget" <no-reply@myapp.com>',
+      to: email,
+      subject: 'Verify your email address',
+      text: `Your verification code is: ${code}`,
+      html: `<p>Your verification code is: <b>${code}</b></p>`,
+    };
+
+    await transporter.sendMail(mailOptions);
+  }
+
+  async verifyEmail(email: string, code: string) {
+    if (!email || !code) {
+      throw new BadRequestException('Missing email or verification code');
+    }
+  
     const user = await this.userModel.findOne({ email });
     if (!user) {
+      throw new BadRequestException('User not found');
+    }
+  
+    if (user.verificationToken !== code) {
+      throw new BadRequestException('Invalid verification code');
+    }
+  
+    user.isVerified = true;
+    user.verificationToken = "";
+    await user.save();
+  
+    return { message: 'Email verified successfully' };
+  }
+  
+
+  async login(credentials: { email: string; password: string }) {
+    const { email, password } = credentials;
+  
+    const user = await this.userModel.findOne({ email }).select('+password').lean();
+    if (!user || !user.password) {
       throw new UnauthorizedException('Invalid credentials');
     }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
+  
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
-
+  
     if (!user.isVerified) {
       throw new UnauthorizedException('Please verify your email first');
     }
-
-    const payload = { email: user.email, sub: user._id };
-    const token = this.jwtService.sign(payload);
-
-    const { password: _, ...userWithoutPassword } = user.toObject();
-    return { token, user: userWithoutPassword };
+  
+    const payload = {
+      email: user.email,
+      sub: user._id.toString(),
+      role: user.role,
+    };
+  
+    return {
+      token: this.jwtService.sign(payload),
+      user: (({ password, ...u }) => u)(user),
+    };
   }
 
   async forgotPassword(email: string): Promise<{ message: string }> {
@@ -94,19 +151,5 @@ export class AuthService {
     await user.save();
 
     return { message: 'Password reset successfully' };
-  }
-
-  async verifyEmail(token: string): Promise<{ message: string }> {
-    const user = await this.userModel.findOne({ verificationToken: token });
-
-    if (!user) {
-      throw new BadRequestException('Invalid verification token');
-    }
-
-    user.isVerified = true;
-    user.verificationToken = undefined;
-    await user.save();
-
-    return { message: 'Email verified successfully' };
   }
 }

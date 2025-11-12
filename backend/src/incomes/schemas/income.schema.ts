@@ -3,7 +3,7 @@ import { Document, Types } from 'mongoose';
 
 @Schema({ timestamps: true })
 export class Income extends Document {
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true, index: true })
   user: Types.ObjectId;
 
   @Prop({ required: true })
@@ -13,7 +13,7 @@ export class Income extends Document {
   amount: number;
 
   @Prop({ required: true })
-  source: string; // e.g., 'Salary', 'Freelance', 'Investment'
+  source: string;
 
   @Prop({ type: Date, default: Date.now })
   date: Date;
@@ -29,3 +29,5 @@ export class Income extends Document {
 }
 
 export const IncomeSchema = SchemaFactory.createForClass(Income);
+
+IncomeSchema.index({ user: 1, date: -1 });

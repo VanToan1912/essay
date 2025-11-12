@@ -3,17 +3,17 @@ import { Document, Types } from 'mongoose';
 
 @Schema({ timestamps: true })
 export class Transaction extends Document {
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true, index: true })
   user: Types.ObjectId;
 
   @Prop({ required: true })
-  category: string; // e.g., "Food", "Rent", "Travel"
+  category: string;
 
   @Prop({ required: true })
   amount: number;
 
   @Prop({ required: true })
-  account: string; // e.g., "Main Wallet", "Bank Account"
+  account: string;
 
   @Prop({ type: Date, required: true })
   date: Date;
@@ -21,11 +21,21 @@ export class Transaction extends Document {
   @Prop({ default: '' })
   description: string;
 
-  @Prop({ default: 'expense', enum: ['expense', 'income', 'transfer'] })
-  type: string;
+  @Prop({
+    default: 'expense',
+    enum: ['expense', 'income', 'transfer'],
+    required: true,
+  })
+  type: 'expense' | 'income' | 'transfer';
 
-  @Prop({ type: String, default: null })
-  relatedAccount?: string; // for transfers
+  @Prop({
+    type: String,
+    default: null,
+    required: function () {
+      return this.type === 'transfer';
+    },
+  })
+  relatedAccount?: string;
 
   @Prop({ type: [String], default: [] })
   tags: string[];
@@ -35,3 +45,6 @@ export class Transaction extends Document {
 }
 
 export const TransactionSchema = SchemaFactory.createForClass(Transaction);
+
+// Fast pagination + user filter
+TransactionSchema.index({ user: 1, date: -1 });
